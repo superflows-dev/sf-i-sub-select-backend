@@ -92,6 +92,20 @@ export const processDelete = async (event) => {
         processAddLog(userId, 'delete', event, response, response.statusCode)
         return response;
     }
+
+    if(SEARCH_ENDPOINT.length > 0) {
+
+        const searchResult = await processSearchName(resultGet.Item.name);
+        
+        if(searchResult.hits.found > 0) {
+        
+            const response = {statusCode: 409, body: {result: false, error: "Can't delete because this item is used elsewhere. Found " + searchResult.hits.found + " uses. "}}
+            processAddLog(userId, 'delete', event, response, response.statusCode)
+            return response;
+        
+        }
+
+    }
     
     var deleteParams = {
         TableName: TABLE,

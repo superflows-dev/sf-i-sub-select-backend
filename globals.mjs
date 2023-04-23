@@ -14,6 +14,8 @@ const AUTH_STAGE = "test";
 
 const PRESERVE_LOGS_DAYS = 3;
 
+const SEARCH_ENDPOINT = "AWS_SEARCH_ENDPOINT";
+
 export { 
     REGION,
     ScanCommand, 
@@ -29,5 +31,6 @@ export {
     AUTH_REGION, 
     AUTH_API, 
     AUTH_STAGE,
-    PRESERVE_LOGS_DAYS
+    PRESERVE_LOGS_DAYS,
+    SEARCH_ENDPOINT
 };
