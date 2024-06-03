@@ -2,7 +2,7 @@ import { TABLE, SEARCH_ENDPOINT, AUTH_ENABLE, AUTH_REGION, AUTH_API, AUTH_STAGE,
 import { processAuthenticate } from './authenticate.mjs';
 import { newUuidV4 } from './newuuid.mjs';
 import { processAddLog } from './addlog.mjs';
-import { processSearchName } from './searchname.mjs';
+import { processSearchNameApi } from './searchnameapi.mjs';
 
 export const processDelete = async (event) => {
     
@@ -94,9 +94,9 @@ export const processDelete = async (event) => {
         return response;
     }
 
-    if(SEARCH_ENDPOINT.length > 0) {
+    if(SEARCH_ENDPOINT_HOST.length > 0) {
 
-        const searchResult = await processSearchName(resultGet.Item.name);
+        const searchResult = await processSearchNameApi(resultGet.Item.name.S);
         
         if(searchResult.hits.found > 0) {
         
