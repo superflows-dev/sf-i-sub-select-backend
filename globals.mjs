@@ -15,6 +15,12 @@ const AUTH_STAGE = "test";
 
 const PRESERVE_LOGS_DAYS = 3;
 
+const ENTITY_NAME = "ENTITY_NAME_VALUE";
+
+const CHANGE_ENDPOINT_HOST = "AWS_CHANGE_ENDPOINT.execute-api.us-east-1.amazonaws.com";
+const CHANGE_ENDPOINT_PATH = "/test/startjob";
+
+
 const SEARCH_ENDPOINT_HOST = "AWS_SEARCH_ENDPOINT.execute-api.us-east-1.amazonaws.com";
 const SEARCH_ENDPOINT_PATH = "/test";
 
@@ -38,5 +44,8 @@ export {
     UploadDocumentsCommand,
     SearchCommand,
     SEARCH_ENDPOINT_HOST,
-    SEARCH_ENDPOINT_PATH
+    SEARCH_ENDPOINT_PATH,
+    CHANGE_ENDPOINT_HOST,
+    CHANGE_ENDPOINT_PATH,
+    ENTITY_NAME
 };

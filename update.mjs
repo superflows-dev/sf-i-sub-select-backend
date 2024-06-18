@@ -1,7 +1,8 @@
-import { TABLE, AUTH_ENABLE, AUTH_REGION, AUTH_API, AUTH_STAGE, ddbClient, ScanCommand, PutItemCommand, GetItemCommand, UpdateItemCommand, QueryCommand } from "./globals.mjs";
+import { TABLE, AUTH_ENABLE, AUTH_REGION, AUTH_API, AUTH_STAGE, ddbClient, ScanCommand, PutItemCommand, GetItemCommand, UpdateItemCommand, QueryCommand, ENTITY_NAME } from "./globals.mjs";
 import { processAuthenticate } from './authenticate.mjs';
 import { newUuidV4 } from './newuuid.mjs';
 import { processAddLog } from './addlog.mjs';
+import { processManageChange } from './managechange.mjs';
 
 export const processUpdate = async (event) => {
     
@@ -99,6 +100,8 @@ export const processUpdate = async (event) => {
         processAddLog(userId, 'update', event, response, response.statusCode)
         return response;
     }
+
+    var oldName = resultGet.Item.name;
     
     var updateParams = {
       TableName: TABLE,
@@ -125,6 +128,15 @@ export const processUpdate = async (event) => {
     };
     
     var resultUpdate = await ddbUpdate();
+
+    await processManageChange(event["headers"]["Authorization"], 
+    { 
+            changedEntity: ENTITY_NAME,
+            changedEntityId: id,
+            changedEntityOldName: oldName.S,
+            changedEntityNewName: name
+        }
+    );
     
     const response = {statusCode: 200, body: {result: true}};
     processAddLog(userId, 'update', event, response, response.statusCode)
