@@ -23,6 +23,15 @@ export const handler = async (event, context, callback) => {
       return;
     }
     
+    var path = ""; 
+    
+    if(event["path"] != null) {
+      path = event["path"];
+    } else {
+      path = event["rawPath"];
+    }
+    
+    
     switch(event["path"]) {
       
         case "/create":
