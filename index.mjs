@@ -31,8 +31,7 @@ export const handler = async (event, context, callback) => {
       path = event["rawPath"];
     }
     
-    
-    switch(event["path"]) {
+    switch(path) {
       
         case "/create":
           const resultCreate = await processCreate(event);
