@@ -1,4 +1,5 @@
-import { TABLE, SEARCH_ENDPOINT_HOST, SEARCH_ENDPOINT_PATH, AUTH_ENABLE, AUTH_REGION, AUTH_API, AUTH_STAGE, ddbClient, ScanCommand, PutItemCommand, GetItemCommand, UpdateItemCommand, DeleteItemCommand, QueryCommand } from "./globals.mjs";
+import { TABLE, SEARCH_ENDPOINT_HOST, SEARCH_ENDPOINT_PATH, AUTH_REGION, AUTH_API, AUTH_STAGE, ddbClient, ScanCommand, PutItemCommand, GetItemCommand, UpdateItemCommand, DeleteItemCommand, QueryCommand } from "./globals.mjs";
+import { AUTH_ENABLE, ENTITY_NAME, GetObjectCommand, S3_BUCKET_NAME, s3Client, S3_DB_FILE_KEY, PutObjectCommand } from "./globals.mjs";
 import { processAuthenticate } from './authenticate.mjs';
 import { newUuidV4 } from './newuuid.mjs';
 import { processAddLog } from './addlog.mjs';
@@ -68,27 +69,28 @@ export const processDelete = async (event) => {
         const response = {statusCode: 400, body: {result: false, error: "Foreign key not valid!"}}
         return response;
     }
-
-    var getParams = {
-        TableName: TABLE,
-        Key: {
-          id: { S: id },
-          fk: { S: fk },
-        },
-    };
     
-    async function ddbGet () {
-        try {
-          const data = await ddbClient.send(new GetItemCommand(getParams));
-          return data;
-        } catch (err) {
-          return err;
+    var command = new GetObjectCommand({
+        Bucket: S3_BUCKET_NAME,
+        Key: S3_DB_FILE_KEY,
+    });
+    
+    var jsonData = {};
+    
+    try {
+        const response = await s3Client.send(command);
+        const s3ResponseStream = response.Body;
+        const chunks = []
+        for await (const chunk of s3ResponseStream) {
+            chunks.push(chunk)
         }
-    };
+        const responseBuffer = Buffer.concat(chunks)
+        jsonData = JSON.parse(responseBuffer.toString());
+    } catch (err) {
+        console.log("db read",err); 
+    }
     
-    var resultGet = await ddbGet();
-    
-    if(resultGet.Item == null) {
+    if(jsonData[id] == null) {
         const response = {statusCode: 404, body: {result: false, error: "Record does not exist!"}}
         processAddLog(userId, 'delete', event, response, response.statusCode)
         return response;
@@ -96,7 +98,7 @@ export const processDelete = async (event) => {
 
     if(SEARCH_ENDPOINT_HOST.length > 0) {
 
-        const searchResult = await processSearchNameApi(resultGet.Item.name.S);
+        const searchResult = await processSearchNameApi(jsonData[id].name);
         
         if(searchResult.hits.found > 0) {
         
@@ -108,25 +110,20 @@ export const processDelete = async (event) => {
 
     }
     
-    var deleteParams = {
-        TableName: TABLE,
-        Key: {
-            id: { S: id },
-            fk: { S: fk },
-        }
-    };
+    delete jsonData[id]
     
-    const ddbDelete = async () => {
-        try {
-            const data = await ddbClient.send(new DeleteItemCommand(deleteParams));
-            return data;
-        } catch (err) {
-            console.log(err)
-            return err;
-        }
-    };
+    command = new PutObjectCommand({
+        Bucket: S3_BUCKET_NAME,
+        Key: S3_DB_FILE_KEY,
+        Body: JSON.stringify(jsonData),
+        ContentType: 'application/json'
+    });
     
-    var resultDelete = await ddbDelete();
+    try {
+        await s3Client.send(command);
+    } catch (err) {
+        console.log("delete error",err);
+    }
     
     const response = {statusCode: 200, body: {result: true}};
     processAddLog(userId, 'delete', event, response, response.statusCode)

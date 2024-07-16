@@ -1,4 +1,5 @@
-import { TABLE, AUTH_ENABLE, AUTH_REGION, AUTH_API, AUTH_STAGE, ddbClient, ScanCommand, PutItemCommand, QueryCommand } from "./globals.mjs";
+import { TABLE, AUTH_REGION, AUTH_API, AUTH_STAGE, ddbClient, ScanCommand, PutItemCommand, QueryCommand } from "./globals.mjs";
+import { AUTH_ENABLE, ENTITY_NAME, GetObjectCommand, S3_BUCKET_NAME, s3Client, S3_DB_FILE_KEY, PutObjectCommand } from "./globals.mjs";
 import { processAuthenticate } from './authenticate.mjs';
 import { newUuidV4 } from './newuuid.mjs';
 
@@ -54,46 +55,37 @@ export const processList = async (event) => {
       const response = {statusCode: 400, body: {result: false, error: "Foreign key not valid!"}}
       return response;
     }
-  
-    var scanParams = {
-        TableName: TABLE,
-        ExpressionAttributeValues: {
-            ':fk1': {S: fk}
-        },
-        ExpressionAttributeNames: {
-            '#fk1': "fk"
-        },
-        KeyConditionExpression: '#fk1 = :fk1',
-    }
     
-    var resultItems = []
-  
-    async function ddbQuery () {
-        try {
-            const data = await ddbClient.send (new QueryCommand(scanParams));
-            resultItems = resultItems.concat((data.Items))
-            if(data.LastEvaluatedKey != null) {
-                scanParams.ExclusiveStartKey = data.LastEvaluatedKey;
-                await ddbQuery();
-            }
-        } catch (err) {
-            console.log(err);
-            return err;
+    var command = new GetObjectCommand({
+        Bucket: S3_BUCKET_NAME,
+        Key: S3_DB_FILE_KEY,
+    });
+    
+    var jsonData = {};
+    
+    try {
+        const response = await s3Client.send(command);
+        const s3ResponseStream = response.Body;
+        const chunks = []
+        for await (const chunk of s3ResponseStream) {
+            chunks.push(chunk)
         }
-    };
-    
-    const resultQ = await ddbQuery();
-    
-    // unmarshall the records
+        const responseBuffer = Buffer.concat(chunks)
+        jsonData = JSON.parse(responseBuffer.toString());
+    } catch (err) {
+        console.log("db read",err); 
+    }
   
     var unmarshalledItems = [];
-  
-    for(var i = 0; i < resultItems.length; i++) {
-        var item = {};
-        for(var j = 0; j < Object.keys(resultItems[i]).length; j++) {
-            item[Object.keys(resultItems[i])[j]] = resultItems[i][Object.keys(resultItems[i])[j]][Object.keys(resultItems[i][Object.keys(resultItems[i])[j]])[0]];
+    
+    for(let key of Object.keys(jsonData)){
+        if(jsonData[key].fk == fk){
+            let item = {'id':key}
+            for(let subkey of Object.keys(jsonData[key])){
+                item[subkey] = jsonData[key][subkey]
+            }
+            unmarshalledItems.push(item);
         }
-        unmarshalledItems.push(item);
     }
     
     const response = {statusCode: 200, body: {result: true, data: {values: unmarshalledItems}}};

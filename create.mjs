@@ -1,4 +1,5 @@
-import { TABLE, AUTH_ENABLE, AUTH_REGION, AUTH_API, AUTH_STAGE, ddbClient, ScanCommand, PutItemCommand, QueryCommand } from "./globals.mjs";
+import { TABLE, AUTH_REGION, AUTH_API, AUTH_STAGE, ddbClient, ScanCommand, PutItemCommand, QueryCommand } from "./globals.mjs";
+import { AUTH_ENABLE, GetObjectCommand, S3_BUCKET_NAME, s3Client, S3_DB_FILE_KEY, PutObjectCommand } from "./globals.mjs";
 import { processAuthenticate } from './authenticate.mjs';
 import { newUuidV4 } from './newuuid.mjs';
 import { processAddLog } from './addlog.mjs';
@@ -68,41 +69,37 @@ export const processCreate = async (event) => {
     }
     
     // scan records
-  
-    var scanParams = {
-        TableName: TABLE,
-    }
     
-    var resultItems = []
-  
-    async function ddbQuery () {
-        try {
-            const data = await ddbClient.send (new ScanCommand(scanParams));
-            resultItems = resultItems.concat((data.Items))
-            if(data.LastEvaluatedKey != null) {
-                scanParams.ExclusiveStartKey = data.LastEvaluatedKey;
-                await ddbQuery();
-            }
-        } catch (err) {
-            console.log(err);
-            return err;
+    var command = new GetObjectCommand({
+        Bucket: S3_BUCKET_NAME,
+        Key: S3_DB_FILE_KEY,
+    });
+    
+    var jsonData = {};
+    
+    try {
+        const response = await s3Client.send(command);
+        const s3ResponseStream = response.Body;
+        const chunks = []
+        for await (const chunk of s3ResponseStream) {
+            chunks.push(chunk)
         }
-    };
-    
-    const resultQ = await ddbQuery();
+        const responseBuffer = Buffer.concat(chunks)
+        jsonData = JSON.parse(responseBuffer.toString());
+    } catch (err) {
+        console.log("db read",err); 
+    }
+  
     
     var found = false;
     
-    console.log('result items', resultItems);
-    
-    for(var i = 0; i < resultItems.length; i++) {
-        
-        if(resultItems[i].name.S == name) {
+    for(const itemId of Object.keys(jsonData)){
+        if(jsonData[itemId].name == name){
             found = true;
             break;
         }
-        
     }
+    
     
     if(found) {
     
@@ -114,25 +111,24 @@ export const processCreate = async (event) => {
     
     const id = newUuidV4();
     
-    var setParams = {
-        TableName: TABLE,
-        Item: {
-          'id' : {"S": id},
-          'name' : {"S": name},
-          'fk' : {"S": fk}
-        }
-    };
     
-    const ddbPut = async () => {
-        try {
-          const data = await ddbClient.send(new PutItemCommand(setParams));
-          return data;
-        } catch (err) {
-          return err;
-        }
-    };
+    jsonData[id] = {
+        'name' : name,
+        'fk': fk
+    }
     
-    const resultPut = await ddbPut();
+    command = new PutObjectCommand({
+        Bucket: S3_BUCKET_NAME,
+        Key: S3_DB_FILE_KEY,
+        Body: JSON.stringify(jsonData),
+        ContentType: 'application/json'
+    });
+    
+    try {
+        await s3Client.send(command);
+    } catch (err) {
+        console.log("write error",err);
+    }
     
     
     const response = {statusCode: 200, body: {result: true}};
