@@ -30,7 +30,7 @@ const CHANGE_ENDPOINT_PATH = "/startjob";
 const SEARCH_ENDPOINT_HOST = "AWS_SEARCH_ENDPOINT.execute-api.us-east-1.amazonaws.com";
 const SEARCH_ENDPOINT_PATH = "/test";
 
-const RANDOM_NUMBER_MAX_LIMIT = 5;
+const RANDOM_NUMBER_MAX_LIMIT = 20;
 
 export { 
     REGION,
